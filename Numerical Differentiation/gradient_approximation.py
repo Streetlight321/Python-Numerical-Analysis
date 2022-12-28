@@ -1,12 +1,18 @@
 import numpy as np
 
+# EPS (eps) is a small value to avoid numerical errors
 EPS = np.finfo(float).eps
 
+
 def nth_root(x,n):
+    # Calculate nth root of x.
     return x ** (1/n)
 
+# Generate step size for numerical differentiation.
 def generate_step(x, order, deriv_order):
+    # Calculate default step size based on precision and derivative order
     hdefault = nth_root(EPS, order + deriv_order)
+    # Scale step size based on magnitude of x
     step= hdefault*(np.abs(x) + 1)
     return step
 
@@ -68,19 +74,23 @@ def fgrad(f, x, h=None, method=2, args=None):
     Grad = np.zeros(n)
     for i in range(n):
         if H.dtype == complex:
+            # Calculate gradient using complex step differentiation for complex-valued functions
             Grad[i] = np.matmul([1],
                                [f(x + H[i])]
                                ).imag / H[i,i].imag
         else:
             if method==1:
+                # Calculate gradient using forward difference method for real-valued functions
                 Grad[i] = np.matmul([-1, 1],
                                    [fx, f(x + H[i])]
                                    ) / H[i,i]
             elif method==2:
+                # Calculate gradient using central difference method for real-valued functions
                 Grad[i] = np.matmul([-1, 0, 1],
                                    [f(x - H[i]), fx, f(x + H[i])]
                                    ) / (2*H[i,i])
             else:
+                # Calculate gradient using five-point stencil method for real-valued functions
                 Grad[i] = np.matmul([1, -8, 0, 8, -1],
                                    [f(x - 2*H[i]), f(x - H[i]), fx,
                                     f(x + H[i]), f(x + 2*H[i])]
@@ -91,6 +101,24 @@ def fgrad(f, x, h=None, method=2, args=None):
 vfgrad = np.vectorize(fgrad, signature='(n)->(n)', excluded=[0, 2, 3, 4])
 
 def prepare_input_fgrad(f, x, h, method, args):
+    """
+    Prepare input arguments for fgrad function.
+    
+    Parameters:
+    f (function): The function to differentiate.
+    x (float or array-like): The point at which to differentiate the function.
+    h (float or array-like, optional): The step size(s) to use for numerical differentiation. 
+        If not provided, a default step size will be calculated.
+    method (int, optional): The numerical differentiation method to use.
+        1: Forward difference
+        2: Central difference (default)
+        3: Five-point stencil
+    args (tuple, optional): Additional arguments to pass to the function when evaluating it.
+    
+    Returns:
+    tuple: A tuple containing the prepared function, function value at x, and step size matrix.
+    """
+    # Check if additional arguments are provided and handle them appropriately
     if args is not None:
         if isinstance(args, tuple) or isinstance(args, list) and len(args)>0:
             f = lambda x, f=f: f(x, *args)
@@ -98,12 +126,14 @@ def prepare_input_fgrad(f, x, h, method, args):
             raise Exception('args must be a list or tuple of at least length 1 containing the additional parameters to be passed to the function.')
     else:
         pass
+    # Check if a valid method is provided
     
     if method not in [1, 2, 4]:
         raise Exception(f'Invalid value for method. Value of order must be among {[1, 2, 4]}.')
     else:
         pass
-    
+
+    # Ensure x is a 1D array and check its data type
     x = np.atleast_1d(x)
     if x.ndim!=1:
         raise ValueError('x must be a 1d vector of values.')
@@ -114,6 +144,7 @@ def prepare_input_fgrad(f, x, h, method, args):
             raise ValueError('Complex values not allowed for x. x must be a real-valued vector.')
     else:
         raise TypeError('x must be a real-valued vector.')
+    # Check if h is provided and handle it appropriately
     
     if h is None:
         h = generate_step(x, method, 1)
@@ -129,9 +160,10 @@ def prepare_input_fgrad(f, x, h, method, args):
             h = h * np.ones_like(x)
         else:
             pass
-    
+    # Create a matrix with the step sizes as its diagonal elements
     H = np.diag(h)
     
+    # Evaluate the function at x and check its output
     fx = np.asarray(f(x))
     if fx.ndim!=0:
         raise ValueError('Output of f must be a scalar.')
@@ -139,4 +171,5 @@ def prepare_input_fgrad(f, x, h, method, args):
         raise TypeError('Invalid output type for f. f is expected to be a real-valued scalar multivariable function for real-valued vector inputs.')
     else:
         pass
+    # Return the prepared function, function value at x, and step size matrix
     return f, fx, H
